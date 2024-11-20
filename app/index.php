@@ -15,7 +15,8 @@ require __DIR__ . '/../vendor/autoload.php';
 require_once './db/AccesoDatos.php';
 // require_once './middlewares/Logger.php';
 
-require_once './controllers/UsuarioController.php';
+require_once './controllers/ProductoController.php';
+require_once './middlewares/ValidarDatosProducto.php';
 
 // Load ENV
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
@@ -31,17 +32,11 @@ $app->addErrorMiddleware(true, true, true);
 $app->addBodyParsingMiddleware();
 
 // Routes
-$app->group('/usuarios', function (RouteCollectorProxy $group) {
-    $group->get('[/]', \UsuarioController::class . ':TraerTodos');
-    $group->get('/{usuario}', \UsuarioController::class . ':TraerUno');
-    $group->post('[/]', \UsuarioController::class . ':CargarUno');
-  });
-
-$app->get('[/]', function (Request $request, Response $response) {    
-    $payload = json_encode(array("mensaje" => "Slim Framework 4 PHP"));
-    
-    $response->getBody()->write($payload);
-    return $response->withHeader('Content-Type', 'application/json');
+$app->group('/tienda', function (RouteCollectorProxy $group) 
+{
+    $group->post('/alta', \ProductoController::class . ':CargarUno')->add(new ValidarDatosProducto(array("titulo", "tipo", "precio", "stock")), new ValidarDatosProducto(array("titulo", "precio", "tipo", "anioSalida", "formato", "stock")));
+    $group->post('/consultar', \ProductoController::class . ':TraerUno')->add(new ValidarDatosProducto(array("titulo", "tipo", "formato")));
+    // $group->post('[/]', \ProductoController::class . ':CargarUno');
 });
 
 $app->run();
