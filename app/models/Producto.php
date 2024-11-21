@@ -49,6 +49,20 @@ class Producto
 
         return $consulta->fetchObject('Producto');
     }
+    public static function obtenerProductosPorTituloTipoFormatoYStock($titulo, $tipo, $formato, $stock)
+    {
+        $objAccesoDatos = AccesoDatos::obtenerInstancia();
+        $consulta = $objAccesoDatos->prepararConsulta("SELECT id, titulo, precio, tipo, anioSalida, formato, stock FROM productos 
+        WHERE titulo = :titulo AND tipo = :tipo AND formato = :formato AND stock = :stock");
+        $consulta->bindValue(':titulo', $titulo, PDO::PARAM_STR);
+        $consulta->bindValue(':tipo', $tipo, PDO::PARAM_STR);
+        $consulta->bindValue(':formato', $formato, PDO::PARAM_STR);
+        $consulta->bindValue(':stock', $stock, PDO::PARAM_INT);
+        
+        $consulta->execute();
+
+        return $consulta->fetchObject('Producto');
+    }
     public static function obtenerProductosPorId($id)
     {
         $objAccesoDatos = AccesoDatos::obtenerInstancia();

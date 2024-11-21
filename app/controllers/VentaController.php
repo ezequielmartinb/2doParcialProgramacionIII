@@ -1,24 +1,26 @@
 <?php
 require_once './models/Producto.php';
+require_once './models/Venta.php';
 require_once './interfaces/IApiUsable.php';
 
-class ProductoController extends Producto implements IApiUsable
+class VentaController extends Venta implements IApiUsable
 {
     public function CargarUno($request, $response, $args)
     {
       $parametros = $request->getParsedBody();
       $uploadedFiles = $request->getUploadedFiles();
-
-
       $titulo = $parametros['titulo'];
-      $precio = $parametros['precio'];
       $tipo = $parametros['tipo'];
-      $anioSalida = $parametros['anioSalida'];
       $formato = $parametros['formato'];
       $stock = $parametros['stock'];
-      $imagen = $uploadedFiles['imagen'];
 
-      $directorioImagenes = __DIR__ . '/../ImagenesDeProductos/2024/';
+      $mail = $parametros['mail'];
+      $numeroPedido = Venta::obtenerNumeroPedido();
+      $imagen = $uploadedFiles['imagenUsuario'];
+
+      $producto = Producto::obtenerProductosPorTituloTipoFormatoYStock($titulo,$tipo,$formato,$stock);
+      
+      $directorioImagenes = __DIR__ . '/../ImagenesDeVenta/2024/';
 
       if (!file_exists($directorioImagenes)) 
       {
@@ -29,8 +31,9 @@ class ProductoController extends Producto implements IApiUsable
           return $response->withHeader('Content-Type', 'application/json');
         }
       }
+      $mailSinArroba = explode("@",$mail);      
 
-      $nombreImagen = $tipo . '_' . $titulo . '_' . uniqid() . '.' . pathinfo($imagen->getClientFilename(), PATHINFO_EXTENSION);
+      $nombreImagen = $titulo . '_' . $tipo . '_' . $formato . '_' . $mailSinArroba[0] . '_' . uniqid() . '.' . pathinfo($imagen->getClientFilename(), PATHINFO_EXTENSION);
 
       try 
       {
@@ -43,17 +46,16 @@ class ProductoController extends Producto implements IApiUsable
         return $response->withHeader('Content-Type', 'application/json');
       }
 
-      $producto = new Producto();
-      $producto->titulo = $titulo;
-      $producto->precio = $precio;
-      $producto->tipo = $tipo;
-      $producto->anioSalida = $anioSalida;
-      $producto->formato = $formato;
-      $producto->stock = $stock;
-      $producto->crearProducto();
+      $producto->stock = $producto->stock - 1;
+      Producto::modificarProducto($producto);
+      $venta = new Venta();
+      $venta->idProducto = $producto->id;
+      $venta->mail = $mail;
+      $venta->numeroPedido = $numeroPedido;
+      $venta->crearVenta();
 
-      $payload = json_encode(array("mensaje" => "Producto creado con exito"));
-
+      $payload = json_encode(array("mensaje" => "Venta creada con exito"));
+      
       $response->getBody()->write($payload);
       return $response->withHeader('Content-Type', 'application/json');
     }
