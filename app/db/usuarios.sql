@@ -68,3 +68,24 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+CREATE TABLE `tienda` 
+(
+`id` int(11) NOT NULL AUTO_INCREMENT,
+`titulo` varchar(250) COLLATE utf8_unicode_ci NOT NULL,
+`precio` int(11) NOT NULL,
+`tipo` varchar(250) COLLATE utf8_unicode_ci NOT NULL,
+`anioSalida` int(11) NOT NULL,
+`formato` varchar(250) COLLATE utf8_unicode_ci NOT NULL,
+`stock` int(11) NOT NULL,
+PRIMARY KEY('id')) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+CREATE TABLE `ventas` 
+(
+`id` int(11) NOT NULL AUTO_INCREMENT,
+`mail` varchar(250) COLLATE utf8_unicode_ci NOT NULL,
+`idTienda` int(11) NOT NULL,
+`numeroPedido` varchar(250) COLLATE utf8_unicode_ci NOT NULL,
+`fechaAlta` date NOT NULL,
+PRIMARY KEY(`id`), 
+FOREIGN KEY (`idTienda`) REFERENCES `tienda`(`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;

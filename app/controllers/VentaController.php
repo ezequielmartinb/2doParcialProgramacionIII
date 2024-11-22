@@ -1,5 +1,5 @@
 <?php
-require_once './models/Producto.php';
+require_once './models/Tienda.php';
 require_once './models/Venta.php';
 require_once './interfaces/IApiUsable.php';
 
@@ -12,49 +12,57 @@ class VentaController extends Venta implements IApiUsable
       $titulo = $parametros['titulo'];
       $tipo = $parametros['tipo'];
       $formato = $parametros['formato'];
-      $stock = $parametros['stock'];
+      $cantidad = $parametros['cantidad'];
 
       $mail = $parametros['mail'];
       $numeroPedido = Venta::obtenerNumeroPedido();
       $imagen = $uploadedFiles['imagenUsuario'];
 
-      $producto = Producto::obtenerProductosPorTituloTipoFormatoYStock($titulo,$tipo,$formato,$stock);
-      
-      $directorioImagenes = __DIR__ . '/../ImagenesDeVenta/2024/';
-
-      if (!file_exists($directorioImagenes)) 
+      $tienda = Tienda::obtenerTiendaPorTituloTipoYFormato($titulo,$tipo,$formato);
+      if($tienda != null)
       {
-        if (!mkdir($directorioImagenes, 0777, true))
+        $directorioImagenes = __DIR__ . '/../ImagenesDeVenta/2024/';
+
+        if (!file_exists($directorioImagenes)) 
         {
-          $payload = json_encode(array("mensaje" => "No se pudo crear el directorio para guardar las imágenes"));
+          if (!mkdir($directorioImagenes, 0777, true))
+          {
+            $payload = json_encode(array("mensaje" => "No se pudo crear el directorio para guardar las imágenes"));
+            $response->getBody()->write($payload);
+            return $response->withHeader('Content-Type', 'application/json');
+          }
+        }
+        $mailSinArroba = explode("@",$mail);      
+
+        $nombreImagen = $titulo . '_' . $tipo . '_' . $formato . '_' . $mailSinArroba[0] . '_' . uniqid() . '.' . pathinfo($imagen->getClientFilename(), PATHINFO_EXTENSION);
+
+        try 
+        {
+          $imagen->moveTo($directorioImagenes . $nombreImagen);
+        } 
+        catch (Exception $e) 
+        {
+          $payload = json_encode(array("mensaje" => "Error al guardar la imagen del cliente" . $e->getMessage()));
           $response->getBody()->write($payload);
           return $response->withHeader('Content-Type', 'application/json');
         }
-      }
-      $mailSinArroba = explode("@",$mail);      
 
-      $nombreImagen = $titulo . '_' . $tipo . '_' . $formato . '_' . $mailSinArroba[0] . '_' . uniqid() . '.' . pathinfo($imagen->getClientFilename(), PATHINFO_EXTENSION);
+        $tienda->stock = $tienda->stock - $cantidad;
+        $tienda->modificarTienda();
+        $venta = new Venta();       
+        $venta->mail = $mail;
+        $venta->idTienda = $tienda->id;
+        $venta->numeroPedido = $numeroPedido;
+        $venta->cantidad = $cantidad;
+        $venta->crearVenta();
 
-      try 
+        $payload = json_encode(array("mensaje" => "Venta creada con exito"));
+      }      
+      else
       {
-        $imagen->moveTo($directorioImagenes . $nombreImagen);
-      } 
-      catch (Exception $e) 
-      {
-        $payload = json_encode(array("mensaje" => "Error al guardar la imagen del producto" . $e->getMessage()));
-        $response->getBody()->write($payload);
-        return $response->withHeader('Content-Type', 'application/json');
+        $payload = json_encode(array("mensaje" => "Producto de la tienda inexistente"));
       }
-
-      $producto->stock = $producto->stock - 1;
-      Producto::modificarProducto($producto);
-      $venta = new Venta();
-      $venta->idProducto = $producto->id;
-      $venta->mail = $mail;
-      $venta->numeroPedido = $numeroPedido;
-      $venta->crearVenta();
-
-      $payload = json_encode(array("mensaje" => "Venta creada con exito"));
+      
       
       $response->getBody()->write($payload);
       return $response->withHeader('Content-Type', 'application/json');
@@ -62,19 +70,18 @@ class VentaController extends Venta implements IApiUsable
 
     public function TraerUno($request, $response, $args)
     {
-      $parametros = $request->getParsedBody();
+      $parametros = $request->getQueryParams();
 
-      $titulo = $parametros['titulo'];
-      $tipo = $parametros['tipo'];
-      $formato = $parametros['formato'];
-      $producto = Producto::obtenerProductosPorTituloTipoYFormato($titulo, $tipo, $formato);
-      if($producto != null)
+      $usuario = $parametros['usuario'];
+      
+      $venta = Venta::obtenerVentasPorUsuario($usuario);
+      if($venta != null)
       {
-        $payload = json_encode(array("mensaje" => "existe"));
+        $payload = json_encode(array("ventas" => $venta));
       }
       else
       {
-        $payload = json_encode(array("mensaje" => "EL PRODUCTO INGRESADO NO EXISTE"));
+        $payload = json_encode(array("mensaje" => "VENTAS CON EL USUARIO $usuario NO EXISTEN"));
       }
 
       $response->getBody()->write($payload);
@@ -83,35 +90,151 @@ class VentaController extends Venta implements IApiUsable
 
     public function TraerTodos($request, $response, $args)
     {
-      $lista = Producto::obtenerTodos();
-      $payload = json_encode(array("listaDeProductos" => $lista));
+      $lista = Venta::obtenerTodos();
+      $payload = json_encode(array("listaDeVentas" => $lista));
 
       $response->getBody()->write($payload);
       return $response->withHeader('Content-Type', 'application/json');
-    }
+    }    
+    public function TraerProductosVendidos($request, $response, $args)
+    {
+      $parametros = $request->getQueryParams();
+
+      if(isset($parametros["fecha"]))
+      {
+        $fecha = $parametros["fecha"];
+        $lista = Venta::obtenerProductosVendidosPorFecha($fecha);
+        $payload = json_encode(array("Cantidad Productos Vendidos en la Fecha $fecha" => $lista));
+        
+      }
+      else
+      {
+        $fechaActual = new DateTime(date('Y-m-d'));
+        $fechaActual->modify('-1 day');
+        $fechaActual = date_format($fechaActual,'Y-m-d');
+        $lista = Venta::obtenerProductosVendidosPorFecha($fechaActual);  
+        $payload = json_encode(array("Cantidad Productos Vendidos en la Fecha $fechaActual" => $lista));
+        
+      }
+      $response->getBody()->write($payload);
+      return $response->withHeader('Content-Type', 'application/json');
+    }    
+    public function TraerPorTipoDeTienda($request, $response, $args)
+    {
+      $parametros = $request->getQueryParams();      
+      $tipo = $parametros["tipo"];
+      $lista = Venta::obtenerVentasPorTipo($tipo);
+      if($lista != null)
+      {
+        $payload = json_encode(array("Listado de ventas por tipo $tipo" => $lista));
+      }
+      else
+      {
+        $payload = json_encode(array("mensaje" => "VENTAS CON EL TIPO $tipo NO EXISTEN"));
+      }     
+      
+      $response->getBody()->write($payload);
+      return $response->withHeader('Content-Type', 'application/json');
+    }    
+    public function TraerPorRangoPrecio($request, $response, $args)
+    {
+      $parametros = $request->getQueryParams();
+      $precio1 = $parametros['precio1'];
+      $precio2 = $parametros['precio2'];
+
+      if($precio1 > $precio2)
+      {
+        $lista = Tienda::obtenerTiendasPorRangoDePrecios($precio2, $precio1);
+      }
+      else
+      {
+        $lista = Tienda::obtenerTiendasPorRangoDePrecios($precio1, $precio2); 
+      }
+
+      $payload = json_encode(array("listaDeProductosDeTiendaPorRangoPrecio" => $lista));
+
+      $response->getBody()->write($payload);
+      return $response->withHeader('Content-Type', 'application/json');
+    }   
+    public function TraerPorAnioSalida($request, $response, $args)
+    {
+      $lista = Venta::obtenerVentasOrdenadasPorAnioSalida();
+      $payload = json_encode(array("listaDeVentasOrdenadasPorAnioSalida" => $lista));
+
+      $response->getBody()->write($payload);
+      return $response->withHeader('Content-Type', 'application/json');
+    } 
+    
+
     
     public function ModificarUno($request, $response, $args)
     {
       $parametros = $request->getParsedBody();
 
-      $producto = Producto::obtenerProductosPorId($parametros['id']);
-
-      if($producto != null)
+      $venta = Venta::obtenerVentasPorNumeroPedido($parametros['numeroPedido']);
+      $titulo = $parametros['titulo'];
+      $tipo = $parametros['tipo'];
+      $formato = $parametros['formato'];
+      if($venta != null)
       {
-        $producto->titulo = $parametros['titulo'];
-        $producto->precio = $parametros['precio'];
-        $producto->tipo = $parametros['tipo'];
-        $producto->anioSalida = $parametros['anioSalida'];
-        $producto->formato = $parametros['formato'];
-        $producto->stock = $parametros['precio'];
+        if($venta->cantidad > $parametros['cantidad'])
+        {
+          $tienda = Tienda::obtenerTiendaPorTituloTipoYFormato($titulo,$tipo,$formato);
+          if($tienda->id == $venta->idTienda)
+          {
+            $tienda->stock = $tienda->stock - ($parametros['cantidad'] - $venta->cantidad);
+            $tienda->modificarTienda();
+            $venta->mail = $parametros['mail'];
+            $venta->idTienda = $tienda->id;
+            $venta->numeroPedido = $parametros['numeroPedido'];
+            $venta->cantidad = $parametros['cantidad'];
+          }
+          else
+          {
+            $tiendaDeLaVenta = Tienda::obtenerTiendaPorId($venta->idTienda);
+            $tiendaDeLaVenta->stock = $tiendaDeLaVenta->stock + $venta->cantidad;
+            $tienda->modificarTienda();
+            $tienda->stock = $tienda->stock + ($venta->cantidad - $parametros['cantidad']);
+            $tienda->modificarTienda();
+            $venta->mail = $parametros['mail'];
+            $venta->idTienda = $tienda->id;
+            $venta->numeroPedido = $parametros['numeroPedido'];
+            $venta->cantidad = $parametros['cantidad'];
+          }
+  
+        }
+        else
+        {
+          $tienda = Tienda::obtenerTiendaPorTituloTipoYFormato($titulo,$tipo,$formato);
+          if($tienda->id == $venta->idTienda)
+          {
+            $tienda->stock = $tienda->stock + ($venta->cantidad - $parametros['cantidad']);
+            $tienda->modificarTienda();
+            $venta->mail = $parametros['mail'];
+            $venta->idTienda = $tienda->id;
+            $venta->numeroPedido = $parametros['numeroPedido'];
+            $venta->cantidad = $parametros['cantidad'];  
+          }
+          else
+          {
+            $tiendaDeLaVenta = Tienda::obtenerTiendaPorId($venta->idTienda);
+            $tiendaDeLaVenta->stock = $tiendaDeLaVenta->stock + $venta->cantidad;
+            $tiendaDeLaVenta->modificarTienda();
+            $tienda->stock = $tienda->stock + ($venta->cantidad - $parametros['cantidad']);
+            $tienda->modificarTienda();
+            $venta->mail = $parametros['mail'];
+            $venta->idTienda = $tienda->id;
+            $venta->numeroPedido = $parametros['numeroPedido'];
+            $venta->cantidad = $parametros['cantidad'];
+          }
+        }
+        $venta->modificarVenta();
 
-        Producto::modificarProducto($producto);
-
-        $payload = json_encode(array("mensaje" => "Producto modificado con exito"));
+        $payload = json_encode(array("mensaje" => "La venta se modificado con exito"));
       }
       else
       {
-        $payload = json_encode(array("mensaje" => "EL ID INGRESADO ES INEXISTENTE"));
+        $payload = json_encode(array("mensaje" => "EL NUMERO DE PEDIDO INGRESADO ES INEXISTENTE"));
       }       
 
       $response->getBody()->write($payload);
@@ -122,16 +245,16 @@ class VentaController extends Venta implements IApiUsable
     {
       $parametros = $request->getParsedBody();
 
-      $producto = Producto::obtenerProductosPorId($parametros['id']);
+      $venta = Venta::obtenerVentasPorNumeroPedido($parametros['numeroPedido']);
 
-      if($producto != null)
+      if($venta != null)
       {
-        Producto::borrarProducto($producto);
-        $payload = json_encode(array("mensaje" => "El producto fue borrado con exito"));
+        Venta::borrarVenta($venta);
+        $payload = json_encode(array("mensaje" => "La venta fue borrada con exito"));
       }
       else
       {
-        $payload = json_encode(array("mensaje" => "EL ID INGRESADO ES INEXISTENTE"));
+        $payload = json_encode(array("mensaje" => "EL NUMERO DE PEDIDO INGRESADO ES INEXISTENTE"));
       }
 
       $response->getBody()->write($payload);

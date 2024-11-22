@@ -6,10 +6,13 @@ class AccesoDatos
 
     private function __construct()
     {
-        try {
-            $this->objetoPDO = new PDO("mysql:host=localhost;dbname=2doparcialdb", "root", "");
+        try 
+        {
+            $this->objetoPDO = new PDO("mysql:host=localhost;dbname=db_segundoparcial_programacioniii", "root", "");
             $this->objetoPDO->exec("SET CHARACTER SET utf8");
-        } catch (PDOException $e) {
+        } 
+        catch (PDOException $e) 
+        {
             print "Error: " . $e->getMessage();
             die();
         }
@@ -17,7 +20,8 @@ class AccesoDatos
 
     public static function obtenerInstancia()
     {
-        if (!isset(self::$objAccesoDatos)) {
+        if (!isset(self::$objAccesoDatos)) 
+        {
             self::$objAccesoDatos = new AccesoDatos();
         }
         return self::$objAccesoDatos;

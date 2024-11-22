@@ -1,14 +1,13 @@
 <?php
-require_once './models/Producto.php';
+require_once './models/Tienda.php';
 require_once './interfaces/IApiUsable.php';
 
-class ProductoController extends Producto implements IApiUsable
+class TiendaController extends Tienda implements IApiUsable
 {
     public function CargarUno($request, $response, $args)
     {
       $parametros = $request->getParsedBody();
       $uploadedFiles = $request->getUploadedFiles();
-
 
       $titulo = $parametros['titulo'];
       $precio = $parametros['precio'];
@@ -38,21 +37,21 @@ class ProductoController extends Producto implements IApiUsable
       } 
       catch (Exception $e) 
       {
-        $payload = json_encode(array("mensaje" => "Error al guardar la imagen del producto" . $e->getMessage()));
+        $payload = json_encode(array("mensaje" => "Error al guardar la imagen del producto de la tienda" . $e->getMessage()));
         $response->getBody()->write($payload);
         return $response->withHeader('Content-Type', 'application/json');
       }
 
-      $producto = new Producto();
-      $producto->titulo = $titulo;
-      $producto->precio = $precio;
-      $producto->tipo = $tipo;
-      $producto->anioSalida = $anioSalida;
-      $producto->formato = $formato;
-      $producto->stock = $stock;
-      $producto->crearProducto();
+      $tienda = new Tienda();
+      $tienda->titulo = $titulo;
+      $tienda->precio = $precio;
+      $tienda->tipo = $tipo;
+      $tienda->anioSalida = $anioSalida;
+      $tienda->formato = $formato;
+      $tienda->stock = $stock;
+      $tienda->crearTienda();
 
-      $payload = json_encode(array("mensaje" => "Producto creado con exito"));
+      $payload = json_encode(array("mensaje" => "Producto de la tienda creado con exito"));
 
       $response->getBody()->write($payload);
       return $response->withHeader('Content-Type', 'application/json');
@@ -65,14 +64,14 @@ class ProductoController extends Producto implements IApiUsable
       $titulo = $parametros['titulo'];
       $tipo = $parametros['tipo'];
       $formato = $parametros['formato'];
-      $producto = Producto::obtenerProductosPorTituloTipoYFormato($titulo, $tipo, $formato);
-      if($producto != null)
+      $tienda = Tienda::obtenerTiendaPorTituloTipoYFormato($titulo, $tipo, $formato);
+      if($tienda != null)
       {
         $payload = json_encode(array("mensaje" => "existe"));
       }
       else
       {
-        $payload = json_encode(array("mensaje" => "EL PRODUCTO INGRESADO NO EXISTE"));
+        $payload = json_encode(array("mensaje" => "EL PRODUCTO DE LA TIENDA INGRESADO NO EXISTE"));
       }
 
       $response->getBody()->write($payload);
@@ -81,31 +80,58 @@ class ProductoController extends Producto implements IApiUsable
 
     public function TraerTodos($request, $response, $args)
     {
-      $lista = Producto::obtenerTodos();
-      $payload = json_encode(array("listaDeProductos" => $lista));
+      $lista = Tienda::obtenerTodos();
+      $payload = json_encode(array("listaDeTienda" => $lista));
 
       $response->getBody()->write($payload);
       return $response->withHeader('Content-Type', 'application/json');
     }
-    
+    public function TraerPorRangoPrecio($request, $response, $args)
+    {
+      $parametros = $request->getQueryParams();
+      $precio1 = $parametros['precio1'];
+      $precio2 = $parametros['precio2'];
+
+      if($precio1 > $precio2)
+      {
+        $lista = Tienda::obtenerTiendasPorRangoDePrecios($precio2, $precio1);
+      }
+      else
+      {
+        $lista = Tienda::obtenerTiendasPorRangoDePrecios($precio1, $precio2); 
+      }
+
+      $payload = json_encode(array("listaDeProductosPorRangoPrecio" => $lista));
+
+      $response->getBody()->write($payload);
+      return $response->withHeader('Content-Type', 'application/json');
+    }
+    public function TraerProductoMasVendido($request, $response, $args)
+    {
+      $lista = Tienda::obtenerProductosMasVendido();
+      $payload = json_encode(array("listaDeProductoMasVendido" => $lista));
+
+      $response->getBody()->write($payload);
+      return $response->withHeader('Content-Type', 'application/json');
+    }
     public function ModificarUno($request, $response, $args)
     {
       $parametros = $request->getParsedBody();
 
-      $producto = Producto::obtenerProductosPorId($parametros['id']);
+      $tienda = Tienda::obtenerTiendaPorId($parametros['id']);
 
-      if($producto != null)
+      if($tienda != null)
       {
-        $producto->titulo = $parametros['titulo'];
-        $producto->precio = $parametros['precio'];
-        $producto->tipo = $parametros['tipo'];
-        $producto->anioSalida = $parametros['anioSalida'];
-        $producto->formato = $parametros['formato'];
-        $producto->stock = $parametros['precio'];
+        $tienda->titulo = $parametros['titulo'];
+        $tienda->precio = $parametros['precio'];
+        $tienda->tipo = $parametros['tipo'];
+        $tienda->anioSalida = $parametros['anioSalida'];
+        $tienda->formato = $parametros['formato'];
+        $tienda->stock = $parametros['stock'];
 
-        Producto::modificarProducto($producto);
+        $tienda->modificarTienda();
 
-        $payload = json_encode(array("mensaje" => "Producto modificado con exito"));
+        $payload = json_encode(array("mensaje" => "El Producto de la Tienda modificado con exito"));
       }
       else
       {
@@ -120,12 +146,12 @@ class ProductoController extends Producto implements IApiUsable
     {
       $parametros = $request->getParsedBody();
 
-      $producto = Producto::obtenerProductosPorId($parametros['id']);
+      $tienda = Tienda::obtenerTiendaPorId($parametros['id']);
 
-      if($producto != null)
+      if($tienda != null)
       {
-        Producto::borrarProducto($producto);
-        $payload = json_encode(array("mensaje" => "El producto fue borrado con exito"));
+        $tienda->borrarTienda();
+        $payload = json_encode(array("mensaje" => "El producto de la tienda fue borrado con exito"));
       }
       else
       {

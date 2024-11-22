@@ -4,7 +4,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\RequestHandlerInterface as RequestHandler;
 use Slim\Psr7\Response as ResponseClass;
 
-class ValidarDatosProducto 
+class ValidarDatosTienda 
 {    
     private $camposAValidar = array();
 
@@ -43,19 +43,27 @@ class ValidarDatosProducto
         }            
         if($this->camposAValidar == array("titulo", "precio", "tipo", "anioSalida", "formato", "stock"))
         {
-            return $this->ValidarDatosAltaProducto($request, $requestHandler, $response);
+            return $this->ValidarDatosAltaTienda($request, $requestHandler, $response);
         }
         else if($this->camposAValidar == array("titulo", "tipo", "formato"))
         {
-            return $this->ValidarDatosConsultarProducto($request, $requestHandler, $response);
+            return $this->ValidarDatosConsultarTienda($request, $requestHandler, $response);
         }    
         else if($this->camposAValidar == array("titulo", "tipo", "precio", "stock"))
         {
-            return $this->ValidarSiElProductoExiste($request, $requestHandler, $response);
+            return $this->ValidarSiLaTiendaExiste($request, $requestHandler, $response);
+        }  
+        else if($this->camposAValidar == array("tipo"))
+        {
+            return $this->ValidarDatosTipo($request, $requestHandler, $response);
+        }  
+        else if($this->camposAValidar == array("precio1", "precio2"))
+        {
+            return $this->ValidarDatosPrecios($request, $requestHandler, $response);
         }  
         
     }  
-    public function ValidarDatosAltaProducto(Request $request, RequestHandler $requestHandler, $response)
+    public function ValidarDatosAltaTienda(Request $request, RequestHandler $requestHandler, $response)
     {
         $params = $request->getParsedBody();        
         
@@ -83,7 +91,7 @@ class ValidarDatosProducto
         
         return $response;   
     }   
-    public function ValidarDatosConsultarProducto(Request $request, RequestHandler $requestHandler, $response)
+    public function ValidarDatosConsultarTienda(Request $request, RequestHandler $requestHandler, $response)
     {
         $params = $request->getParsedBody();         
         
@@ -101,12 +109,12 @@ class ValidarDatosProducto
             }
             else if($formatoIngresado != 'Digital' && $formatoIngresado != 'Fisico')
             {
-                $response->getBody()->write(json_encode(array("mensaje" => "No hay producto del formato " . $formatoIngresado)));
+                $response->getBody()->write(json_encode(array("mensaje" => "No hay producto de la tienda del formato " . $formatoIngresado)));
                 return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
             }
             else if($tipoIngresado != 'Videojuego' && $tipoIngresado != 'Pelicula')
             {
-                $response->getBody()->write(json_encode(array("mensaje" => "No hay producto del tipo " . $tipoIngresado)));
+                $response->getBody()->write(json_encode(array("mensaje" => "No hay producto de la tienda del tipo " . $tipoIngresado)));
                 return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
             }
             
@@ -120,7 +128,7 @@ class ValidarDatosProducto
         return $response;   
     }   
      
-    public function ValidarSiElProductoExiste(Request $request, RequestHandler $requestHandler, $response)
+    public function ValidarSiLaTiendaExiste(Request $request, RequestHandler $requestHandler, $response)
     {
         $params = $request->getParsedBody();        
         
@@ -132,13 +140,13 @@ class ValidarDatosProducto
             $stockIngresado = $params["stock"];                    
             if(is_string($tituloIngresado) && is_string($tipoIngresado) && is_numeric($precioIngresado) && is_numeric($stockIngresado)) 
             {
-                $producto = Producto::obtenerProductosPorTituloYTipo($tituloIngresado, $tipoIngresado);
-                if($producto != null)
+                $tienda = Tienda::obtenerTiendaPorTituloYTipo($tituloIngresado, $tipoIngresado);
+                if($tienda != null)
                 {
-                    $producto->stock = $producto->stock + $stockIngresado; 
-                    $producto->precio = $precioIngresado;
-                    $response->getBody()->write(json_encode(array("mensaje" => "El producto ya existe. Se modificó el stock y el precio")));
-                    Producto::modificarProducto($producto);
+                    $tienda->stock = $tienda->stock + $stockIngresado; 
+                    $tienda->precio = $precioIngresado;
+                    $response->getBody()->write(json_encode(array("mensaje" => "El producto de la tienda ya existe. Se modifico el stock y el precio")));
+                    $tienda->modificarTienda();
                     return $response->withHeader('Content-Type', 'application/json')->withStatus(202);
                 }
                 else
@@ -149,23 +157,60 @@ class ValidarDatosProducto
         }           
         else
         {
-            $response->getBody()->write(json_encode(array("error" => "Error. Datos ingresados invalidos VALIDAR SI EL PRODUCTO EXISTE")));
+            $response->getBody()->write(json_encode(array("error" => "Error. Datos ingresados invalidos")));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
         
         return $response;   
-    }  
-    
-    public function ValidarId(Request $request, RequestHandler $requestHandler, $response, $id)
+    }     
+    public function ValidarDatosTipo(Request $request, RequestHandler $requestHandler, $response)
     {
-        $params = $request->getParsedBody();
-        $idIngresado = $params[$id]; 
-        if(!(is_numeric($idIngresado)))
+        $params = $request->getQueryParams();           
+
+        if(isset($params["tipo"]))
         {
-            $response->getBody()->write(json_encode(array("error" => "Error. Datos ingresados invalidos")));
+            $tipoIngresado = $params["tipo"];         
+            if (is_string($tipoIngresado) && ($tipoIngresado == 'Pelicula' || $tipoIngresado == 'Videojuego')) 
+            {
+                return $requestHandler->handle($request);
+            } 
+            else
+            {
+                $response->getBody()->write(json_encode(array("error" => "Datos ingresados invalidos")));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+            }            
+        }
+        else
+        {            
+            $response->getBody()->write(json_encode(array("error" => "No ingreso datos")));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
-        return $requestHandler->handle($request);
-    }
+        return $response;         
+    }   
+    public function ValidarDatosPrecios(Request $request, RequestHandler $requestHandler, $response)
+    {
+        $params = $request->getQueryParams();           
+
+        if(isset($params["precio1"]) && isset($params["precio2"]))
+        {
+            $precio1Ingresado = $params["precio1"];         
+            $precio2Ingresado = $params["precio2"];         
+            if (is_numeric($precio1Ingresado) && is_numeric($precio2Ingresado)) 
+            {
+                return $requestHandler->handle($request);
+            } 
+            else
+            {
+                $response->getBody()->write(json_encode(array("error" => "Datos ingresados invalidos")));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+            }            
+        }
+        else
+        {            
+            $response->getBody()->write(json_encode(array("error" => "No ingreso datos")));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        return $response;         
+    } 
 }
 ?>

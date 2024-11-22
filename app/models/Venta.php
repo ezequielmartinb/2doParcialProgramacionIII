@@ -3,20 +3,22 @@
 class Venta
 {
     public $id;
-    public $idProducto;
     public $mail;
+    public $idTienda;
     public $numeroPedido;
-    public $fechaAlta;    
+    public $cantidad;
+    public $fechaAlta;
 
     public function crearVenta()
     {
         $objAccesoDatos = AccesoDatos::obtenerInstancia();
-        $consulta = $objAccesoDatos->prepararConsulta("INSERT INTO ventas (idProducto, mail, numeroPedido, fechaAlta) 
-        VALUES (:idProducto, :mail, :numeroPedido, :fechaAlta)");
-        $fechaAlta = new DateTime(date('Y-m-d'));
-        $consulta->bindValue(':idProducto', $this->idProducto, PDO::PARAM_INT);
+        $consulta = $objAccesoDatos->prepararConsulta("INSERT INTO ventas (mail, idTienda, numeroPedido, cantidad, fechaAlta) 
+        VALUES (:mail, :idTienda, :numeroPedido, :cantidad, :fechaAlta)");
+        $fechaAlta = new DateTime(date('Y-m-d'));        
         $consulta->bindValue(':mail', $this->mail, PDO::PARAM_STR);
+        $consulta->bindValue(':idTienda', $this->idTienda, PDO::PARAM_INT);
         $consulta->bindValue(':numeroPedido', $this->numeroPedido, PDO::PARAM_STR);
+        $consulta->bindValue(':cantidad', $this->cantidad, PDO::PARAM_INT);
         $consulta->bindValue(':fechaAlta', date_format($fechaAlta,'Y-m-d'), PDO::PARAM_STR);      
         
         $consulta->execute();
@@ -27,45 +29,77 @@ class Venta
     public static function obtenerTodos()
     {
         $objAccesoDatos = AccesoDatos::obtenerInstancia();
-        $consulta = $objAccesoDatos->prepararConsulta("SELECT id, idProducto, mail, numeroPedido, fechaAlta FROM ventas");
+        $consulta = $objAccesoDatos->prepararConsulta("SELECT id, mail, idTienda, numeroPedido, cantidad, fechaAlta FROM ventas");
         $consulta->execute();
 
-        return $consulta->fetchAll(PDO::FETCH_CLASS, 'Producto');
+        return $consulta->fetchAll(PDO::FETCH_CLASS, 'Venta');
     }
 
-    public static function obtenerVentasPorId($id)
+    public static function obtenerVentasPorUsuario($usuario)
     {
         $objAccesoDatos = AccesoDatos::obtenerInstancia();
-        $consulta = $objAccesoDatos->prepararConsulta("SELECT id, idProducto, mail, numeroPedido, fechaAlta FROM ventas WHERE id = :id");
-        $consulta->bindValue(':id', $id, PDO::PARAM_INT);        
+        $consulta = $objAccesoDatos->prepararConsulta("SELECT id, mail, idTienda, numeroPedido, cantidad, fechaAlta FROM ventas WHERE mail = :usuario");
+        $consulta->bindValue(':usuario', $usuario, PDO::PARAM_STR);
+        $consulta->execute();
+
+        return $consulta->fetchAll(PDO::FETCH_CLASS, 'Venta');
+    }
+    public static function obtenerVentasPorNumeroPedido($numeroPedido)
+    {
+        $objAccesoDatos = AccesoDatos::obtenerInstancia();
+        $consulta = $objAccesoDatos->prepararConsulta("SELECT id, mail, idTienda, numeroPedido, cantidad, fechaAlta FROM ventas WHERE numeroPedido = :numeroPedido");
+        $consulta->bindValue(':numeroPedido', $numeroPedido, PDO::PARAM_STR);        
         
         $consulta->execute();
 
-        return $consulta->fetchObject('Producto');
-    }   
+        return $consulta->fetchObject('Venta');
+    }  
+    public static function obtenerProductosVendidosPorFecha($fecha)
+    {
+        $objAccesoDatos = AccesoDatos::obtenerInstancia();
+        $consulta = $objAccesoDatos->prepararConsulta("SELECT SUM(cantidad) AS CANTIDAD_VENDIDA FROM ventas WHERE fechaAlta = :fechaAlta");
+        $consulta->bindValue(':fechaAlta', $fecha, PDO::PARAM_STR);        
+        $consulta->execute();
+        return $consulta->fetchAll(PDO::FETCH_NUM);
+    }
+    public static function obtenerVentasPorTipo($tipo)
+    {
+        $objAccesoDatos = AccesoDatos::obtenerInstancia();
+        $consulta = $objAccesoDatos->prepararConsulta("SELECT ventas.id, ventas.mail, ventas.idTienda, ventas.numeroPedido, ventas.cantidad, ventas.fechaAlta FROM ventas, tienda 
+        WHERE tienda.tipo = :tipo AND ventas.idTienda = tienda.id");
+        $consulta->bindValue(':tipo', $tipo, PDO::PARAM_STR);        
+        $consulta->execute();
+        return $consulta->fetchAll(PDO::FETCH_CLASS, 'Venta');
+    } 
+    public static function obtenerVentasOrdenadasPorAnioSalida()
+    {
+        $objAccesoDatos = AccesoDatos::obtenerInstancia();
+        $consulta = $objAccesoDatos->prepararConsulta("SELECT ventas.id, ventas.mail, ventas.idTienda, ventas.numeroPedido, ventas.cantidad, ventas.fechaAlta FROM ventas, tienda 
+        WHERE ventas.idTienda = tienda.id ORDER BY tienda.anioSalida DESC");           
+        
+        $consulta->execute();
 
-    public static function modificarVenta($venta)
+        return $consulta->fetchAll(PDO::FETCH_CLASS, 'Venta');
+    }
+
+    public function modificarVenta()
     {
         $objAccesoDato = AccesoDatos::obtenerInstancia();
-        $consulta = $objAccesoDato->prepararConsulta("UPDATE productos SET titulo = :titulo, precio = :precio, tipo = :tipo, anioSalida = :anioSalida, formato = :formato, stock = :stock
-        WHERE id = :id");
-       
-        $consulta->bindValue(':id', $producto->id, PDO::PARAM_INT);
-        $consulta->bindValue(':titulo', $producto->titulo, PDO::PARAM_STR);
-        $consulta->bindValue(':precio', $producto->precio, PDO::PARAM_INT);
-        $consulta->bindValue(':tipo', $producto->tipo, PDO::PARAM_STR);
-        $consulta->bindValue(':anioSalida', $producto->anioSalida, PDO::PARAM_INT);
-        $consulta->bindValue(':formato', $producto->formato, PDO::PARAM_STR);
-        $consulta->bindValue(':stock', $producto->stock, PDO::PARAM_INT);
+        $consulta = $objAccesoDato->prepararConsulta("UPDATE ventas SET mail = :mail, idTienda = :idTienda, cantidad = :cantidad, fechaAlta = :fechaAlta WHERE numeroPedido = :numeroPedido");
+        $consulta->bindValue(':mail', $this->mail, PDO::PARAM_STR);
+        $consulta->bindValue(':idTienda', $this->idTienda, PDO::PARAM_INT);
+        $consulta->bindValue(':fechaAlta', $this->fechaAlta, PDO::PARAM_STR);
+        $consulta->bindValue(':cantidad', $this->cantidad, PDO::PARAM_INT);
+        $consulta->bindValue(':numeroPedido', $this->numeroPedido, PDO::PARAM_STR);
+                
         $consulta->execute();
     }
 
-    public static function borrarProducto($producto)
+    public function borrarVenta()
     {
         $objAccesoDato = AccesoDatos::obtenerInstancia();
-        $consulta = $objAccesoDato->prepararConsulta("UPDATE productos SET stock = :stock WHERE id = :id");
-        $consulta->bindValue(':id', $producto->id, PDO::PARAM_INT);
-        $consulta->bindValue(':stock', 0);
+        $consulta = $objAccesoDato->prepararConsulta("DELETE ventas WHERE id = :id");
+        $consulta->bindValue(':id', $this->id, PDO::PARAM_INT);
         $consulta->execute();
     }
     public static function obtenerNumeroPedido() 
